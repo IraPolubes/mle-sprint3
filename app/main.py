@@ -2,10 +2,12 @@
 import random
 
 # импортируем класс для создания экземпляра FastAPI приложения
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
+from fast_api_handler import FastApiHandler
 
 # создаём экземпляр FastAPI приложения
 app = FastAPI()
+app.handler = FastApiHandler()
 
 # обрабатываем запросы к корню приложения
 @app.get("/")
@@ -25,11 +27,17 @@ def get_prediction_for_item(user_id: str):
 
 # обрабатываем GET-запросы по пути /v1/credit/{client_id} для получения 
 # ответ выдать или нет кредит на основании кредитного score клиента
-@app.get("/api/credit/{client_id}")
-def is_credit_approved(client_id: str):
-    score = random.random()
-    if score > 0.8:
-        approved = 1
+@app.post("/api/credit/")
+def is_credit_approved(client_id: str, model_params: dict):
+    all_params = {
+     "client_id": client_id,
+     "model_params": model_params
+     }
+    user_prediction = app.handler.handle(all_params)
+    score = user_prediction["predicted_credit_rating"]
+    if score >= 600:
+         approved = 1
     else:
-        approved = 0
-    return {"client_id": client_id, "approved": approved}
+         approved = 0
+
+    return {"client_id": client_id, "approved": approved} # ответ 
