@@ -1,6 +1,6 @@
 """FastAPI-приложение для модели оттока."""
 
-from fastapi import FastAPI, Body
+from fastapi import FastAPI
 from fast_api_handler import FastApiHandler
 
 """
@@ -21,7 +21,7 @@ app.handler = FastApiHandler()
 # ваш код функции-обработчика get_prediction_for_item здесь
 
 @app.post('/api/churn/')
-def get_prediction_for_item(user_id, model_params):
+def get_prediction_for_item(user_id, model_params: dict):
     all_params = {
         "user_id": user_id,
         "model_params": model_params
