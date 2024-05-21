@@ -1,5 +1,6 @@
 
 from joblib import load
+import pandas as pd
 
 """
 pipeline = Pipeline([
@@ -69,12 +70,26 @@ class FlatPriceHandler:
             print("Missing parameters: ", given_params - required_params)
             return False
 
+    def keep_training_params(self, user_params):
+        """
+        Не все признаки из изначального сета использовались в тренировке модели.
+        Выберем из нового пользовательского инпута только те что пригодились в тренировке.
+        """
+
+        selected_keys = [key for key in self.required_model_params if key in user_params]
+
+        data = {key: [user_params[key]] for key in selected_keys}
+        df = pd.DataFrame(data, columns=selected_keys)
+
+        return df
+
     def handle(self, params):
         try:
             if not self.validate_params(params):
                 response = {"Error": "Problem with parameters"}
             else:
-                model_params_df = keep_training_params #keep onlyfields we trained on
+                model_params_df = self.keep_training_params(params)
+                # Используем те же трансформации на признаках из ввода что и на тренировке модели
                 model_params_df[self.num_cols] = remove_outliers(model_params_df, self.num_cols)
                 transformed_params_df = self.pipeline.transform(transformed_params_df)
                 price_prediction = self.model.predict(transformed_params_df)
@@ -83,3 +98,5 @@ class FlatPriceHandler:
             return {"Error": "Problem with request"}
         else:
             return response
+
+
