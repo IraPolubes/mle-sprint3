@@ -72,7 +72,12 @@ def read_data():
 
     return df
 
-
+def to_dataframe(X, ct):
+    """
+    This is a helper function for pipelineto reintroduce columns with feature names
+    since some pipeline steps return NumPy while others require DataFrame
+    """
+    return pd.DataFrame(X, columns=ct.get_feature_names_out())
 
 df = read_data()
 
@@ -135,43 +140,9 @@ X = df.drop('target', axis=1)
 y = df['target']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=RANDOM_STATE)
 
-# initalization of metrics dictionary to collect along the expetiment
-
-rmse_metrics = {}
-mape_metrics = {}
-
-
-def display_metrics(metrics, title):
-    for name, val in metrics.items():
-        print(f'{name}: {val:.2f}')
-
-def calculate_rmse(y_test, predictions):
-    mse = np.mean((y_test - predictions) ** 2)
-    return np.sqrt(mse)
-
-def calculate_mape(y_test, predictions):
-    y_test, predictions = np.array(y_test), np.array(predictions)
-    mask = y_test != 0
-    return (np.fabs(y_test - predictions) / y_test)[mask].mean() * 100
-
-
-model.fit(X_train, y_train)
-prediction = model.predict(X_test)
-
-rmse = calculate_rmse(y_test, prediction)
-mape = calculate_mape(y_test, prediction)
-
-rmse_metrics['rmse initial'] = rmse
-mape_metrics['mape initial'] = mape
-
-print('rmse initial:', rmse)
-print('mape initial:', mape)
 
 n_bins = 5
 degree = 3
-
-def to_dataframe(X, ct):
-    return pd.DataFrame(X, columns=ct.get_feature_names_out())
 
 min_max_scaler = MinMaxScaler()
 
@@ -195,45 +166,24 @@ pipeline = Pipeline([
     ('to_df2', FunctionTransformer(to_dataframe, kw_args={'ct': preprocessor})),
 ])
 
-# save pipeline, do not forget to clean outliers and then perform pipeline on the new user input set
+
+
+X_train_pipe = pipeline.fit_transform(X_train)
+X_test_pipe = pipeline.transform(X_test)
+
+# save pipeline after fitting
 if not os.path.exists('pipelines'):
     os.mkdir('pipelines')
 dump(pipeline, '../models/my_pipeline.joblib')
 
-X_train_num_pipe = pipeline.fit_transform(X_train)
-X_test_num_pipe = pipeline.transform(X_test)
+zero_features_names = [col for col in X_train_pipe.columns if ((X_train_pipe[col].min() == X_train_pipe[col].max() == 0)
+                                                            and X_train_pipe[col].std() == 0)]
 
-zero_features_names = [col for col in X_train_num_pipe.columns if ((X_train_num_pipe[col].min() == X_train_num_pipe[col].max() == 0)
-                                                            and X_train_num_pipe[col].std() == 0)]
-
-X_train_num_pipe.drop(zero_features_names, axis = 1, inplace = True)
-X_test_num_pipe.drop(zero_features_names, axis = 1, inplace = True)
+X_train_pipe.drop(zero_features_names, axis = 1, inplace = True)
+X_test_pipe.drop(zero_features_names, axis = 1, inplace = True)
 
 
 # concatenate generated features with original category and numerical scaled
-
-X_train_pipe_total = pd.concat(
-    [X_train[cat_cols].reset_index(drop=True),
-     X_train[num_cols].reset_index(drop=True),
-     X_train_num_pipe.reset_index(drop=True)],
-    axis=1).reset_index(drop=True)
-
-X_test_pipe_total = pd.concat(
-    [X_test[cat_cols].reset_index(drop=True),
-     X_test[num_cols].reset_index(drop=True),
-     X_test_num_pipe.reset_index(drop=True)],
-    axis=1).reset_index(drop=True)
-
-model.fit(X_train_pipe_total, y_train)
-prediction = model.predict(X_test_pipe_total)
+model.fit(X_train_pipe, y_train)
+prediction = model.predict(X_test_pipe)
 dump(model, '../models/my_model.joblib')
-
-
-rmse = calculate_rmse(y_test, prediction)
-mape = calculate_mape(y_test, prediction)
-
-rmse_metrics['rmse feat eng'] = rmse
-mape_metrics['mape feat eng'] = mape
-
-display_metrics(rmse_metrics, 'RMSE comparison')
-display_metrics(mape_metrics, 'MAPE comparison')

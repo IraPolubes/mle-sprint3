@@ -12,16 +12,18 @@ def to_dataframe(X, ct):
 
 def remove_outliers(df, num_cols):
     threshold = 1.5
+    df_num = df[num_cols].copy()  # Create a copy of the numerical columns
     for col in num_cols:
-        Q1 = df[col].quantile(0.25)
-        Q3 = df[col].quantile(0.75)
+        Q1 = df_num[col].quantile(0.25)
+        Q3 = df_num[col].quantile(0.75)
         IQR = Q3 - Q1
         margin = threshold * IQR
         lower = Q1 - margin
         upper = Q3 + margin
-        mask = df[col].between(lower, upper)
-        df = df[mask]
-    return df
+        mask = df_num[col].between(lower, upper)
+        df_num = df_num[mask]  # Filter only numerical columns
+    return df_num
+
 
 
 class FlatPriceHandler:
@@ -32,9 +34,9 @@ class FlatPriceHandler:
         self.model = RandomForestRegressor()  # Объявление полей класса централизовано и заранее в одном месте для ясности
         self.pipeline = None
 
-        # Нам не нужен studio, is_apartment, rooms, living_area, оставляем только те что использованы в обучении
+        # По результатам EDA нам не нужен studio, is_apartment, rooms, living_area, оставляем только те что использованы в обучении
         self.required_model_params = [
-            'floor', 'kitchen_area', 'living_area', 'total_area', 'build_year',
+            'floor', 'kitchen_area', 'total_area', 'build_year',
             'building_type_int', 'latitude', 'longitude', 'ceiling_height', 'flats_count', 'floors_total',
             'has_elevator'
         ]
@@ -83,11 +85,8 @@ class FlatPriceHandler:
             else:
                 model_params_df = self.keep_training_params(params)
                 # Use the same transformations on input features as during model training
-                model_params_df = remove_outliers(model_params_df, self.num_cols)
+                model_params_df[self.num_cols] = remove_outliers(model_params_df, self.num_cols)
                 transformed_params_df = self.pipeline.transform(model_params_df)  # Corrected this line
-                print("After transformation:")
-                print(transformed_params_df)
-
                 if self.model is None:
                     raise ValueError("Model is not loaded.")
 
