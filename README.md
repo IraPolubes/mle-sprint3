@@ -1,2 +1,1 @@
-# mle-sprint3
-Репозиторий с авторским решением третьего спринта
+pipeline.py has an easier handling of features without need to take theier features name out
